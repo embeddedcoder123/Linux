@@ -1,0 +1,50 @@
+Einfochip:
+// Differenc between virtual and pure virtual function 
+// Difference between character, block and network device driver
+// Difference between semaphore, mutex and spinlock
+// Can we send structure using IOCTL?
+// Little endian and big endian difference
+How to link dynamic library
+// convert number from decimal to hex
+// Pull up and pull down resistor difference
+// What happens in case of strong pull up and weak pull up
+// What is GNU?
+// What is ABI?
+Do you any sub sytem in linux?
+// What happens when GPIO is trigged through switch, from hardware and software, how interrupt get triggers
+
+KPIT:
+// How context switch happens when open function is called from user space?
+// Where is primary bootloader is stored?
+// Linux boot process
+
+C++:
+//Virtaul function and pure virtual function difference.
+// Diamond problem in C++
+// Other use case of virtual keyword
+Architecture of android HAL
+
+SmartSOC interview question:
+// How to debug I2C driver's node not showing in /dev
+How to debug when SPI driver working at 1 MHz but failing at 10 MHz
+// How to resolve post processing delay issue after interrupt is triggered.
+
+LendisGyr:
+Difference between process and thread?
+Which one is better process or thread?
+How do you debug crash occuring after 1 month in linux kernel without log?
+How many lines are used in I2S protocol?
+How do you write generic function to add
+
+Innomind interview question:
+
+Have you added system call in kernel?
+Have you used perf tool for kernel performance?
+Challenges you faced in board bring up.
+Changes required to add CAN driver in BSP
+What is secure boot?
+
+Luxoft C++:
+Write a code of lambda function.
+Write a code for shallow copy and deep copy.
+Differenc between std:bind and lambda function
