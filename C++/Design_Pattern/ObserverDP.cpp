@@ -1,0 +1,78 @@
+// Observer pattern
+#include <iostream>
+#include<bits/stdc++.h> 
+using namespace std;
+class Observer{// abstract class
+ public:
+ virtual void notify() const = 0;
+ virtual ~Observer(){};
+};
+
+class Subject{
+ list<Observer*>observers;
+ public:
+ Subject(){
+   cout<<"Sub const "<<endl;
+ }
+ void registerObserver(Observer* obj){
+   cout<<typeid(*obj).name()<<" is register"<<endl;
+   observers.push_back(obj);
+ }
+ 
+ void unregisterObserver(Observer* obj){
+   cout<<typeid(*obj).name()<<" is unregister"<<endl;
+   observers.remove(obj);
+ }
+
+ void notifyObserver() const{
+   for(auto obj : observers){
+     obj->notify();
+   }
+ }
+ 
+};
+
+class ConcreteObserverA : public Observer{
+ public:
+ ConcreteObserverA (Subject& sub){
+   sub.registerObserver(this);
+ }
+ void notify() const override {
+   std::cout << "ConcreteObserverA::notify\n";
+ }
+
+};
+
+class ConcreteObserverB : public Observer{
+ public:
+ ConcreteObserverB (Subject& sub){
+   sub.registerObserver(this);
+ }
+ void notify() const override {
+   std::cout << "ConcreteObserverB::notify\n";
+ }
+
+};
+int main() {
+ 
+ Subject sub;
+ ConcreteObserverA objA(sub);
+ ConcreteObserverB objB(sub);
+
+ sub.notifyObserver();
+ 
+ sub.unregisterObserver(&objA);
+ 
+ sub.notifyObserver();
+ return 0;
+}
+/*
+Output:
+Sub const 
+17ConcreteObserverA is register
+17ConcreteObserverB is register
+ConcreteObserverA::notify
+ConcreteObserverB::notify
+17ConcreteObserverA is unregister
+ConcreteObserverB::notify
+*/
