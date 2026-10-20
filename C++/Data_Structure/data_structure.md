@@ -415,7 +415,457 @@ int main (){
   return 0;
 }
 
-
-
 ```
 
+# Double Linked List
+
+```cpp
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct node {
+    int data;
+    struct node *prev;
+    struct node *next;
+} node;
+
+node *head = NULL;
+
+/* Create a new node */
+node *create_node(int data)
+{
+    node *newnode = malloc(sizeof(node));
+
+    if (newnode == NULL) {
+        printf("Memory allocation failed\n");
+        return NULL;
+    }
+
+    newnode->data = data;
+    newnode->prev = NULL;
+    newnode->next = NULL;
+
+    return newnode;
+}
+
+/* Insert at the beginning */
+void insert_begin(int data)
+{
+    node *newnode = create_node(data);
+
+    if (newnode == NULL)
+        return;
+
+    newnode->next = head;
+
+    if (head != NULL)
+        head->prev = newnode;
+
+    head = newnode;
+}
+
+/* Insert at the end */
+void insert_end(int data)
+{
+    node *newnode = create_node(data);
+
+    if (newnode == NULL)
+        return;
+
+    if (head == NULL) {
+        head = newnode;
+        return;
+    }
+
+    node *temp = head;
+
+    while (temp->next != NULL)
+        temp = temp->next;
+
+    temp->next = newnode;
+    newnode->prev = temp;
+}
+
+/* Delete a node by value (first occurrence) */
+void delete_node(int data)
+{
+    node *temp = head;
+
+    while (temp != NULL && temp->data != data)
+        temp = temp->next;
+
+    if (temp == NULL) {
+        printf("Node not found\n");
+        return;
+    }
+
+    if (temp->prev != NULL)
+        temp->prev->next = temp->next;
+    else
+        head = temp->next;
+
+    if (temp->next != NULL)
+        temp->next->prev = temp->prev;
+
+    free(temp);
+    printf("Node deleted: %d\n", data);
+}
+
+/* Display in forward direction */
+void display_forward(void)
+{
+    node *temp = head;
+
+    printf("Forward: ");
+
+    while (temp != NULL) {
+        printf("%d ", temp->data);
+        temp = temp->next;
+    }
+
+    printf("\n");
+}
+
+/* Display in backward direction */
+void display_backward(void)
+{
+    node *temp = head;
+
+    if (temp == NULL) {
+        printf("Backward: List is empty\n");
+        return;
+    }
+
+    while (temp->next != NULL)
+        temp = temp->next;
+
+    printf("Backward: ");
+
+    while (temp != NULL) {
+        printf("%d ", temp->data);
+        temp = temp->prev;
+    }
+
+    printf("\n");
+}
+
+/* Free all allocated memory */
+void free_list(void)
+{
+    node *temp;
+
+    while (head != NULL) {
+        temp = head;
+        head = head->next;
+        free(temp);
+    }
+}
+
+int main(void)
+{
+    insert_begin(20);
+    insert_begin(10);
+    insert_end(30);
+    insert_end(40);
+
+    display_forward();
+    display_backward();
+
+    delete_node(30);
+
+    display_forward();
+    display_backward();
+
+    free_list();
+
+    return 0;
+}
+```
+# Ring buffer
+## Ring buffer in C
+```c
+
+#include <stdio.h>
+
+enum {N=10};
+int buffer[N];
+int writeIndex = 0, readIndex = 0;
+
+int is_ringFull (void) {
+    return (((writeIndex + 1) % N) == readIndex);
+}
+
+int is_ringEmpty(void) {
+    return (writeIndex == readIndex);
+}
+
+
+int put(int item){
+    
+    if(is_ringFull()){
+        printf("Error: buffer is full...\n");
+        return 0; 
+    }
+        
+    buffer[writeIndex] = item;
+    writeIndex = (writeIndex + 1) % N; 
+    
+    return 1;
+}
+
+int get(int * value){
+    //check if buffer is empty or not
+    
+    if(is_ringEmpty()){
+        return 0;
+    }
+    
+    *value = buffer[readIndex];
+    readIndex = (readIndex + 1) % N; 
+    return 1;
+}
+int main() {
+    // Write C code here
+    int val = 100;
+    while(put(val)){
+        printf("added value: %d\n",val++);
+    }
+    int get_val;
+    while(get(&get_val)){
+        printf("read value: %d\n", get_val);
+    }
+   
+    return 0;
+}
+
+```
+## Ring buffer in C++
+```cpp
+#include <iostream>
+#include <vector>
+#include <stdexcept>
+using namespace std;
+
+template <class T>
+class circularbuffer {
+    vector<T> buf;
+    size_t head, tail, capacity;
+    size_t count;
+
+public:
+    explicit circularbuffer(size_t cap)
+        : head(0), tail(0), capacity(cap), count(0)
+    {
+        if (cap == 0)
+            throw invalid_argument("Capacity must be greater than zero");
+
+        buf.resize(capacity);
+    }
+
+    void push_back(const T& data) {
+        buf[head] = data;
+        head = (head + 1) % capacity;
+
+        if (full()) {
+            // Move tail so only latest can store
+            tail = (tail + 1) % capacity;
+        } else {
+            count++;
+        }
+    }
+
+    T pop_front() {
+        if (empty())
+            throw underflow_error("Buffer is empty!");
+
+        T data = buf[tail];
+        tail = (tail + 1) % capacity;
+        count--;
+
+        return data;
+    }
+
+    bool empty() const {
+        return count == 0;
+    }
+
+    bool full() const {
+        return count == capacity;
+    }
+
+    size_t size() const {
+        return count;
+    }
+};
+
+int main() {
+    circularbuffer<int> cb(11);
+
+    try {
+        for (int i = 0; i < 100; i++) {
+            cb.push_back(i * 10);
+        }
+
+        while (!cb.empty()) {
+            cout << cb.pop_front() << endl;
+        }
+    }
+    catch (const exception& e) {
+        cout << e.what() << endl;
+    }
+
+    return 0;
+}
+```
+# Stack
+## Stack in C
+```c
+#include <iostream>
+
+using namespace std;
+//Stack program
+typedef struct
+{
+    int top;
+    unsigned capacity;
+    int *arr;
+}Stack;
+
+Stack* create_Stack(unsigned int capacity)
+{
+    Stack* top_ptr = new(Stack);
+    top_ptr->top = -1;
+    top_ptr->capacity = capacity;
+    top_ptr->arr = (int*)calloc(capacity,sizeof(int));
+    return top_ptr;
+    
+}
+bool Is_Full(Stack* ptr)
+{
+    bool flag = false;
+    if(ptr->top == ptr->capacity-1){
+      flag = true;
+    }
+    return flag;
+}
+bool Is_Emmpty(Stack* ptr)
+{
+    bool flag = false;
+    if(ptr->top == -1){
+      flag = true;
+    }
+    return flag;
+}
+void push(Stack* ptr,int data)
+{
+    if(Is_Full(ptr)){
+        cout<<"stack is full"<<endl;
+        return;
+    }
+    else{
+        ptr->arr[++ptr->top] = data;
+        cout<<"pushed data at "<<ptr->top<<" is: "<<data<<endl;
+    }
+}
+int pop(Stack* ptr)
+{
+    if(Is_Emmpty(ptr)){
+        cout<<"stack is Empty"<<endl;
+        return (-1);
+    }
+    else{
+        return(ptr->arr[ptr->top--]);
+    }
+}
+int peek(Stack* ptr)
+{
+    if(Is_Emmpty(ptr)){
+        cout<<"stack is Empty"<<endl;
+        return (-1);
+    }
+    else{
+        return(ptr->arr[ptr->top]);
+    }
+}
+int main() {
+
+    Stack* stack = create_Stack(100);
+    push(stack, 10);
+	push(stack, 20);
+	push(stack, 30);
+
+	printf("%d popped from stack\n", pop(stack));
+	printf("%d popped from stack\n", pop(stack));
+	printf("%d popped from stack\n", pop(stack));
+	printf("%d popped from stack\n", pop(stack));
+	printf("%d popped from stack\n", pop(stack));
+	push(stack, 10);
+	push(stack, 20);
+	push(stack, 30);
+    return 0;
+}
+```
+
+## Stack in C++
+```cpp
+#include <iostream>
+#include<bits/stdc++.h>
+using namespace std;
+
+template <class T>
+class circularbuffer{
+    vector<T> buf;
+    int head,tail,capacity;
+    
+    public:
+    circularbuffer(int cap){
+        head = tail = 0;
+        capacity = cap;
+        buf.resize(capacity);
+    }
+    
+    void push_back(T data){
+        if(full()){
+            cout<<"buffer is full"<<endl; return;
+        }
+        buf[head] = data;
+        head = (head +1) % capacity;
+        
+        if(head == tail){
+            tail = (tail+1)%capacity;
+        }
+    }
+    
+    T pop_front(){
+        if(empty()){
+            cout<<"buffer is empty"<<endl; 
+            return -1;
+        }
+        T udata = buf[tail]; 
+        tail = (tail+1)%capacity;
+        return udata
+        
+        
+    }
+    
+    bool empty(){
+        return(head == tail);
+    }
+    
+    bool full(){
+        return(((head+1) % capacity) == tail);
+    }
+};
+int main()
+{
+    circularbuffer<int> cb(11);
+    
+    for(int i=0;i<10;i++){
+        cb.push_back(i*10);
+        cout<<cb.pop_front()<<" ";
+    }
+    
+
+    return 0;
+}
+```
