@@ -338,33 +338,47 @@ int main()
 }
 ```
 
-## asyn
+## async
 ```cpp
-// @file async.cpp
+
+ // @file async.cpp
 #include <iostream>
 #include <future>
 
-int square(int x){
-    return x*x;
+// Function that calculates the square of a number
+int square(int x) {
+    return x * x;
 }
 
-int main(){
+int main() {
+    // Start a task using std::async to calculate square(12).
+    // std::future<int> stores the result that will be available later.
+    // By default, std::async may execute asynchronously or defer execution.
+    std::future<int> asyncFunction = std::async(square, 12);
 
-    std::future<int> asyncFunction = std::async(square,12);
-    for(int i=0; i< 10; i++){
+    // The main thread continues executing while the async task may run
+    // concurrently. Calculate and print squares from 0 to 9.
+    for (int i = 0; i < 10; i++) {
         std::cout << square(i) << std::endl;
     }
 
-    // We are blocked at the 'get()' operation, until our
-    // result has computed
+    // Retrieve the result of square(12).
+    // If the task is still running, get() blocks until it completes.
+    // Calling get() also consumes the future's shared state.
     int result = asyncFunction.get();
 
+    // Print the result returned by the asynchronous task (144).
     std::cout << "result is: " << result << std::endl;
 
     return 0;
 }
+```
+**Key point:** 
+- `std::async()` schedules the task, `std::future` holds its eventual result, and `get()` waits if necessary and retrieves that result. 
+- To explicitly request asynchronous execution, use `std::async(std::launch::async, square, 12)`.
 
-
+### async launch policy
+```cpp
 #include <future>
 #include <thread>
 #include <iostream>
@@ -415,53 +429,118 @@ future 3 run on thread 140211453511232
 - `std::launch::deferred` =>indicates that the function call is to be deferred until either wait() or get() is called on the future. 
 - Ownership of the future can be transferred to another thread before this happens.
 
-`std::launch::async | std::launch::deferred ` =>indicates that timplementation may choose. This is the default option (when you don't specify one yourself). 
+`std::launch::async | std::launch::deferred ` =>indicates that implementation may choose. This is the default option (when you don't specify one yourself). 
 It can decide to run synchronously.
 
+
+### `wait_for`
 ```cpp
 #include <iostream>
 #include <future>
 #include <thread>
 #include <chrono>
 
-bool bufferedFileLoader(){
+bool bufferedFileLoader() {
+
     size_t bytesLoaded = 0;
-    while(bytesLoaded < 4000){
-        std::cout << "thread: loading file..." << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
-        bytesLoaded += 1000;
+
+    // This function runs on the background thread.
+    // The main thread does NOT wait for each loading step.
+
+    while (bytesLoaded < 4) {
+
+        std::cout << "Background thread: loading file...\n";
+
+        // Simulate loading data for 250 milliseconds.
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(250)
+        );
+
+        bytesLoaded++;
     }
+
+    // The return value is stored in the shared state
+    // associated with the future when the task completes.
     return true;
 }
 
-int main(){
+int main() {
 
-    std::future<bool> backgroundThread = std::async(std::launch::async,
-                                                    bufferedFileLoader);
+    // 1. START BACKGROUND TASK
+    //
+    // std::launch::async requests asynchronous execution.
+    // bufferedFileLoader() runs concurrently with main().
+    //
+    // backgroundThread represents the eventual result.
+    // It does NOT contain the result immediately.
+
+    std::future<bool> backgroundThread =
+        std::async(
+            std::launch::async,
+            bufferedFileLoader
+        );
 
     std::future_status status;
-    // Our main program loop
-    while(true){
-        std::cout << "Main thread is running" << std::endl;
-        // artificial sleep for our program
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        status = backgroundThread.wait_for(std::chrono::milliseconds(1));
-        // If our data is ready, that is, our background
-        // thread has completed
-        if(status == std::future_status::ready){
-            std::cout << "Our data is ready..." << std::endl;
+
+    // 2. MAIN THREAD CONTINUES WORKING
+    while (true) {
+
+        std::cout << "Main thread is running\n";
+
+        // Simulate other work in the main thread.
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(50)
+        );
+
+        // 3. CHECK TASK COMPLETION
+        //
+        // wait_for(1ms) waits AT MOST 1 millisecond.
+        //
+        // ready   -> background task has completed.
+        // timeout -> background task is still running.
+        //
+        // This is a synchronization operation: it checks
+        // the task's completion state without waiting
+        // indefinitely.
+
+        status = backgroundThread.wait_for(
+            std::chrono::milliseconds(1)
+        );
+
+        if (status == std::future_status::ready) {
+
+            // 4. SYNCHRONIZATION POINT
+            //
+            // The background function has finished.
+            // Its result is now available through the future.
+            //
+            // Completion synchronization also ensures that
+            // effects of the background task happen-before
+            // the successful return from wait_for().
+
+            std::cout << "Our data is ready...\n";
+
+            // Retrieve the result. get() returns true.
+            // It can be called only once on this future.
+            bool success = backgroundThread.get();
+
+            std::cout << "Loading success: "
+                      << std::boolalpha << success << '\n';
+
             break;
         }
 
+        // If status is timeout, the loop repeats.
+        // Main keeps working while the background task loads.
     }
 
-    std::cout << "Program is complete" << std::endl;
+    std::cout << "Program is complete\n";
 
     return 0;
 }
 ```
 
-## std::future
+## `std::future` with `std::launch::deferred`
 
 ```cpp
 
@@ -489,15 +568,18 @@ int main(){
     std::cout<<"main thread ID: "<<std::this_thread::get_id()<<std::endl;
     return 0;
 }
-
+/*
 Output:
 factorial thread ID: 1
 result from thread: 24
 main thread ID: 1 
+*/
 
+```
 
+## `std::future` with `std::launch::async`
 
-
+```cpp
 #include<iostream>
 #include<thread>
 #include<future>
@@ -523,15 +605,52 @@ int main(){
     std::cout<<"main thread ID: "<<std::this_thread::get_id()<<std::endl;
     return 0;
 }
-
+/*
 Output:
 factorial thread ID: 2
 result from thread: 24
 main thread ID: 1 
-
+*/
 ```
 
 ## std::promice
+
+```text
+        MAIN THREAD (Parent)
+                |
+                | 1. Create promise<int> p
+                | 2. Get future<int> fu
+                |
+                v
+        std::async() starts
+                |
+                v
+      BACKGROUND THREAD (Child)
+                |
+                | 3. fu.get()
+                |    Waits for data...
+                |
+                |        BLOCKED
+                |           |
+                |           |  Main sends data
+                |           v
+                |    p.set_value(5)
+                |           |
+                |           v
+                |    Receives n = 5
+                |
+                | 4. Calculate factorial(5)
+                |    5 * 4 * 3 * 2 * 1
+                |
+                | 5. Return 120
+                v
+        future f receives result
+                |
+                | 6. f.get()
+                v
+        MAIN THREAD receives 120
+```
+
 ```cpp
 #include<iostream>
 #include<thread>
@@ -554,7 +673,7 @@ int main(){
     std::promise<int> p;
     std::future<int> fu = p.get_future();
 
-    std::future<int> f = std::async(std::launch::async,factorial,std::ref(fu));
+    std::future<int> f = std::async(std::launch::async, factorial, std::ref(fu));
     /*
         parent thread need to set value to child thread but now parent doesnot has,
         but in future when it has it will sent to child thread that is promise here to child thread
@@ -602,10 +721,10 @@ int main(){
 
     std::shared_future<int> sf = fu.share();
 
-    std::future<int> f1 = std::async(std::launch::async,factorial,sf);
-    std::future<int> f2 = std::async(std::launch::async,factorial,sf);
-    std::future<int> f3 = std::async(std::launch::async,factorial,sf);
-    std::future<int> f4 = std::async(std::launch::async,factorial,sf);
+    std::future<int> f1 = std::async(std::launch::async, factorial, sf);
+    std::future<int> f2 = std::async(std::launch::async, factorial, sf);
+    std::future<int> f3 = std::async(std::launch::async, factorial, sf);
+    std::future<int> f4 = std::async(std::launch::async, factorial, sf);
     
     std::this_thread::sleep_for(chrono::milliseconds(500));
 
@@ -633,221 +752,377 @@ int main(){
 - Locks are available in two flavors in `C++11`. `std::lock_guard` for the simple,  
 and `std::unique-lock` for the advanced use case.
 
-### 1. `std::lock_guard`
 
+| Lock / Function | Prefer It When... | Example Use Case |
+|---|---|---|
+| `std::lock_guard` | You need simple, automatic locking for a scope. | Protecting a shared counter |
+| `std::unique_lock` | You need to lock, unlock, relock, defer locking, or transfer ownership. | Waiting on a condition variable |
+| `std::scoped_lock` | You need to lock multiple mutexes safely together (C++17+). | Transferring money between two accounts |
+| `std::shared_lock` | Multiple threads need to read shared data simultaneously. | Reading a shared cache |
+| `std::mutex::try_lock()` | You want to attempt a lock without waiting. | Skipping work if a resource is busy |
+| `std::lock()` | You need to acquire multiple mutexes while avoiding the usual deadlock risk. | Coordinating two mutexes in C++11/14 |
+| `std::try_lock()` | You want to try acquiring several mutexes without blocking. | Attempting a multi-resource operation |
+| `std::condition_variable` + `std::unique_lock` | A thread must wait until a condition or notification occurs. | Producer-consumer queue |
+
+
+### 1. `std::lock_guard`
+**`std::lock_guard` — most common for simple locking**
 ```c
+#include <mutex>
+using namespace std;
+
 mutex m;
-m.lock();
-sharedVariable= getVar();
-m.unlock();
+int counter = 0;
+
+void increment() {
+    lock_guard<mutex> lock(m);
+    counter++;
+} // Automatically unlocks here
 ```
-- With so little code, `mutex m` ensures access to the critical section s`haredVariable= getVar()` is sequential. 
-- Sequential means  – in this particular case –  that each thread gains access to the critical section in order. 
-- The code is simple but prone to deadlocks. Deadlock appears if the critical section throws an exception or the programmer 
-- forgets to unlock the mutex. With `std::lock_guard` we can do this more elegant:
+- Locks when created.
+
+- Unlocks when the block ends.
+
+- Cannot manually unlock it.
+
+- Best when you need a lock for the entire block.
+
+
+### 2. `std::unique_lock`
+-----------------
+- Can unlock and relock.
+
+- Supports deferred locking and try-locking.
+
+- Automatically unlocks when destroyed if it still owns the mutex.
+
+- Best for condition variables and situations requiring flexible locking.
 
 ```cpp
-{
-  std::mutex m,
-  std::lock_guard<std::mutex> lockGuard(m);
-  sharedVariable= getVar();
+#include <iostream>
+#include <mutex>
+#include <thread>
+#include <condition_variable>
+#include <chrono>
+using namespace std;
+
+mutex m1, m2;           // Normal mutexes
+timed_mutex tm;         // Mutex supporting timed locking
+
+condition_variable cv;
+bool ready = false;
+
+void work() {
+
+    // 1. BASIC LOCK
+    // Locks m1 immediately.
+    // Automatically unlocks when 'lock' is destroyed.
+    unique_lock<mutex> lock(m1);
+
+    // 2. UNLOCK AND RELOCK
+    lock.unlock();      // Release m1 so another thread can use it
+    lock.lock();        // Acquire m1 again (waits if it is busy)
+
+    // 3. CHECK OWNERSHIP
+    // owns_lock() returns true if this object owns the mutex.
+    cout << boolalpha << lock.owns_lock() << '\n'; // true
+
+    // 4. GET THE ASSOCIATED MUTEX
+    // Returns a pointer to m1; it does not lock or unlock it.
+    mutex* ptr = lock.mutex();
+
+    lock.unlock();      // Release m1 before the next example
+
+    // 5. DEFERRED LOCKING
+    // Creates a lock object without locking m1 immediately.
+    unique_lock<mutex> defer(m1, defer_lock);
+    // Not locked still
+    defer.lock();       // Lock m1 later when needed
+
+    defer.unlock();     // Release m1
+
+    // 6. TRY LOCKING
+    // Attempts to lock m1 once without waiting.
+    unique_lock<mutex> attempt(m1, try_to_lock);
+
+    if (attempt.owns_lock()) {
+        cout << "Mutex acquired!\n";
+        // Do protected work here
+    } else {
+        cout << "Mutex is busy!\n";
+        // Do something else instead of waiting
+    }
+    // If acquired, attempt unlocks m1 automatically on destruction.
+
+    // 7. ADOPT AN ALREADY-LOCKED MUTEX
+    m2.lock();  // Manually lock m2 first
+
+    // adopt_lock tells unique_lock that we already own m2.
+    // Do not lock m2 again before adopting it.
+    unique_lock<mutex> adopted(m2, adopt_lock);
+
+    // adopted now manages m2 and will unlock it automatically.
+
+    // 8. MOVE OWNERSHIP
+    // Transfers ownership from adopted to moved.
+    unique_lock<mutex> moved = move(adopted);
+
+    // moved owns m2; adopted no longer owns it.
+    // Do not use adopted to unlock m2.
+
+    // 9. LOCK TWO MUTEXES SAFELY
+    // defer_lock creates both lock objects without locking.
+    unique_lock<mutex> a(m1, defer_lock);
+    unique_lock<mutex> b(m2, defer_lock);
+
+    // Acquires both mutexes using a deadlock-avoiding algorithm.
+    lock(a, b);
+
+    // Both mutexes are now locked.
+    // a and b automatically unlock them when destroyed.
+
+    // 10. TRY TO LOCK MULTIPLE MUTEXES
+    a.unlock();
+    b.unlock();
+
+    // Attempts to acquire both locks without waiting indefinitely.
+    int result = try_lock(a, b);
+
+    if (result == -1) {
+        cout << "Both mutexes acquired!\n";
+        // a and b own their mutexes.
+    } else {
+        cout << "Could not acquire mutex index: "
+             << result << '\n';
+        // The failed attempt releases any locks it acquired.
+    }
+
+    // 11. TIMED LOCKING
+    // timed_mutex supports try_lock_for(); ordinary mutex does not.
+    unique_lock<timed_mutex> timed(tm, defer_lock);
+
+    // Waits up to one second to acquire tm.
+    if (timed.try_lock_for(chrono::seconds(1))) {
+        cout << "Timed lock acquired!\n";
+    } else {
+        cout << "Timed lock failed!\n";
+    }
+
+    // 12. RELEASE OWNERSHIP
+    // release() stops managing the mutex but DOES NOT unlock it.
+    //
+    // mutex* raw = lock.release();
+    // raw->unlock(); // You must unlock it manually.
+    //
+    // Only use release() when you deliberately need manual control.
+
+    // 13. CONDITION VARIABLE
+    // Example usage (normally in a separate consumer function):
+    //
+     unique_lock<mutex> lk(m1);
+     cv.wait(lk, [] { return ready; });
+    // critical section 
+
+      cv.notify_one();  // now critical section will be called
+    // wait() temporarily unlocks m1 while waiting.
+    // After notification, it reacquires m1 before returning.
+    // The predicate handles spurious wakeups.
+
+} // All remaining owned locks automatically unlock here
+
+int main() {
+    work();
+    return 0;
 }
 ```
-
-- That was easy. But what about the opening and closing brackets? The lifetime of `std::lock_guard` is limited by the brackets
-- That means its lifetime ends when it leaves the critical section. 
-- At that time, the destructor of `std::lock_guard` is called, and – I guess you know it – the mutex is released. It happens automatically, and, in addition, it happens if `getVar()` in` sharedVariable = getVar() `throws an exception. Of course, function body scope or loop scope also limits the lifetime of an object.
-
-
-### 2. std::unique_lock
------------------
-- `std::unique_lock` is mightier but more expansive than its small brother `std::lock_guard`.
-
-- A std::unique_lock enables you in addition to std::lock_guard
-
-- create it without an associated mutex
-- create it without a locked associated mutex
-- explicitly and repeatedly set or release the lock of the associated mutex
-    1. move the mutex
-    2. try to lock the mutex
-    3. delayed lock the associated mutex
-
 
 ##### deadlock.cpp
 ```cpp
 #include <iostream>
-#include <chrono>
 #include <mutex>
 #include <thread>
+using namespace std;
 
-struct CriticalData{
-  std::mutex mut;
-};
+mutex m1, m2;
 
-void deadLock(CriticalData& a, CriticalData& b){
+void thread1() {
+    m1.lock();  // Thread 1 locks m1
+    cout << "Thread 1 locked m1\n";
 
-  a.mut.lock();
-  std::cout << "get the first mutex" << std::endl;
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  b.mut.lock();
-  std::cout << "get the second mutex" << std::endl;
-  // do something with a and b
-  a.mut.unlock();
-  b.mut.unlock();
-  
+    this_thread::sleep_for(chrono::milliseconds(100));
+
+    m2.lock();  // Waits for m2, held by Thread 2
+
+    cout << "Thread 1 locked m2\n";
+
+    m2.unlock();
+    m1.unlock();
 }
 
-int main(){
+void thread2() {
+    m2.lock();  // Thread 2 locks m2
+    cout << "Thread 2 locked m2\n";
 
-  CriticalData c1;
-  CriticalData c2;
+    this_thread::sleep_for(chrono::milliseconds(100));
 
-  std::thread t1([&]{deadLock(c1,c2);});
-  std::thread t2([&]{deadLock(c2,c1);});
+    m1.lock();  // Waits for m1, held by Thread 1
 
-  t1.join();
-  t2.join();
+    cout << "Thread 2 locked m1\n";
 
+    m1.unlock();
+    m2.unlock();
 }
 
+int main() {
+    thread t1(thread1);
+    thread t2(thread2);
+
+    t1.join();
+    t2.join();
+}
 get the first mutex
 get the first mutex
 
 ```
+Thread 1 -> Owns m1 -> Waits for m2
+Thread 2 -> Owns m2 -> Waits for m1
 
-#### deadlockResolved.cpp
+#### deadlockResolved.cpp using unique_lock
 ```cpp
 #include <iostream>
-#include <chrono>
 #include <mutex>
 #include <thread>
+#include <chrono>
+using namespace std;
 
-struct CriticalData{
-  std::mutex mut;
-};
+mutex m1, m2;
 
-void deadLock(CriticalData& a, CriticalData& b){
+void thread1() {
+    // Create locks without locking the mutexes yet
+    unique_lock<mutex> lock1(m1, defer_lock);
+    unique_lock<mutex> lock2(m2, defer_lock);
 
-  std::unique_lock<std::mutex>guard1(a.mut,std::defer_lock);
-  std::cout << "Thread: " << std::this_thread::get_id() << " first mutex" <<  std::endl;
+    // Lock both mutexes safely without deadlock
+    lock(lock1, lock2);
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    cout << "Thread 1 acquired both mutexes\n";
 
-  std::unique_lock<std::mutex>guard2(b.mut,std::defer_lock);
-  std::cout << "    Thread: " << std::this_thread::get_id() << " second mutex" <<  std::endl;
+    // Do protected work here
 
-  std::cout << "        Thread: " << std::this_thread::get_id() << " get both mutex" << std::endl;
-  std::lock(guard1,guard2);
-  // do something with a and b
-}
+} // Both unique_lock objects unlock automatically
 
-int main(){
+void thread2() {
+    // Same locking strategy and order-independent acquisition
+    unique_lock<mutex> lock1(m2, defer_lock);
+    unique_lock<mutex> lock2(m1, defer_lock);
 
-  std::cout << std::endl;
+    // Safely acquire both mutexes
+    lock(lock1, lock2);
 
-  CriticalData c1;
-  CriticalData c2;
+    cout << "Thread 2 acquired both mutexes\n";
 
-  std::thread t1([&]{deadLock(c1,c2);});
-  std::thread t2([&]{deadLock(c2,c1);});
+    // Do protected work here
 
-  t1.join();
-  t2.join();
+} // Both unique_lock objects unlock automatically
 
-  std::cout << std::endl;
+int main() {
+    thread t1(thread1);
+    thread t2(thread2);
 
+    t1.join();
+    t2.join();
+
+    return 0;
 }
 ```
- deadlockResolved.cpp
-
+#### deadlockResolved.cpp Use std::scoped_lock (C++17)
+```cpp
 #include <iostream>
-#include <chrono>
 #include <mutex>
 #include <thread>
+using namespace std;
 
-struct CriticalData{
-  std::mutex mut;
-};
+mutex m1, m2;
 
-void deadLock(CriticalData& a, CriticalData& b){
+void thread1() {
+    scoped_lock lock(m1, m2);
 
-  std::unique_lock<std::mutex>guard1(a.mut,std::defer_lock);
-  std::cout << "Thread: " << std::this_thread::get_id() << " first mutex" <<  std::endl;
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
-  std::unique_lock<std::mutex>guard2(b.mut,std::defer_lock);
-  std::cout << "    Thread: " << std::this_thread::get_id() << " second mutex" <<  std::endl;
-
-  std::cout << "        Thread: " << std::this_thread::get_id() << " get both mutex" << std::endl;
-  std::lock(guard1,guard2);
-  // do something with a and b
+    cout << "Thread 1 acquired both\n";
 }
 
-int main(){
+void thread2() {
+    scoped_lock lock(m1, m2);
 
-  std::cout << std::endl;
-
-  CriticalData c1;
-  CriticalData c2;
-
-  std::thread t1([&]{deadLock(c1,c2);});
-  std::thread t2([&]{deadLock(c2,c1);});
-
-  t1.join();
-  t2.join();
-
-  std::cout << std::endl;
-
+    cout << "Thread 2 acquired both\n";
 }
 
-Thread: 140512068126272 first mutex
-Thread: 140512076518976 first mutex
-Thread: 140512068126272 second mutex
-Thread: 140512068126272 get both mutex
-Thread: 140512076518976 second mutex
-Thread: 140512076518976 get both mutex
+int main() {
+    thread t1(thread1);
+    thread t2(thread2);
 
+    t1.join();
+    t2.join();
+}
+```
 
+### 3. `std::scoped_lock` — locking multiple mutexes
+```cpp
+#include <mutex>
+using namespace std;
 
-If you call the constructor of std::unique_lock with the argument std::defer_lock, 
-the lock will not be locked automatically. 
-A variadic template is a template that can accept an arbitrary number of arguments. 
-Here, the arguments are locks. std::lock tries to get all locks in an atomic step. So, he fails or gets all of them.
+mutex m1, m2;
 
-In this example, std::unique_lock takes care of the lifetime of the resources, std::lock locks the associated mutex. 
-But you can do it the other way around. In the first step, you lock the mutexes; 
-in the second std::unique_lock takes care of the lifetime of resources. Here is a sketch of the second approach.
+void work() {
+    scoped_lock lock(m1, m2);
 
+    // Both mutexes are locked
+} // Both unlock automatically
+```
 
+- Locks multiple mutexes together.
 
-std::lock_guard:
-----------------
-std::lock_guard is a lightweight locking mechanism in C++.
-It provides exclusive ownership of a mutex for a scoped duration.
-The lock is acquired upon construction and automatically released when the std::lock_guard object goes out of scope.
-It does not support manual unlocking or relocking of the mutex.
-Ideal for simple, short-duration locks that guarantee automatic release upon scope exit without the need for advanced features.
--------------------------------------------------------------------------------------------------------------------------------
+- Helps avoid deadlocks caused by inconsistent lock ordering.
 
-std::unique_lock:
------------------
-std::unique_lock is a versatile locking mechanism with more features than std::lock_guard.
-It supports both exclusive ownership and shared ownership of a mutex.
-Allows manual unlocking, relocking, and transferring of ownership between different scopes or threads.
-Provides advanced functionalities like timed locking, condition variables, and deadlock avoidance.
-Offers more flexibility and control over locking behavior compared to std::lock_guard.
-Suitable when you require advanced locking features, manual unlocking, or transferring ownership.
-std::shared_lock:
--------------------------------------------------------------------------------------------------------------------------------
+- Available since C++17.
 
-std::shared_lock 
-----------------
-is designed for shared ownership of a mutex, enabling multiple readers.
-Allows multiple threads to acquire the lock concurrently for shared access.
-Similar to std::lock_guard, it does not support manual unlocking or relocking.
-Ensures thread-safety when multiple threads read shared resources.
-Useful when you need to allow concurrent shared access to a resource while maintaining synchronization.
-Conclusion: Choosing the appropriate locking mechanism is crucial for effective concurrency management in C++. Understanding the differences between std::lock_guard, std::unique_lock, and std::shared_lock helps determine which mechanism suits your specific requirements. Use std::lock_guard for simple exclusive locks, std::unique_lock for advanced features and flexibility, and std::shared_lock for enabling shared access. By employing the right locking mechanism, you can ensure thread-safety, prevent data races, and build efficient multi-threaded programs.
+### 4. `std::shared_lock` — multiple readers
 
-Remember to consider the specific needs of your program and choose the locking mechanism that best aligns with your synchronization
+```cpp
+#include <shared_mutex>
+using namespace std;
+
+shared_mutex m;
+
+void readData() {
+    shared_lock<shared_mutex> lock(m);
+    // Multiple readers can enter together
+}
+
+void writeData() {
+    unique_lock<shared_mutex> lock(m);
+    // Only one exclusive owner at a time
+}
+```
+
+- Multiple threads can read simultaneously.
+
+- A writer needs exclusive access.
+
+- Best for read-heavy applications.
+
+### 5. try_lock() — don't wait
+
+```cpp
+if (m.try_lock()) {
+    // Successfully locked
+    m.unlock();
+} else {
+    // Someone else holds the mutex
+}
+```
+
+- Returns immediately.
+
+- Useful when your thread can do something else if the mutex is busy.
+
+- Prefer RAII locking where possible to avoid forgetting unlock().
