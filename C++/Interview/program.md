@@ -1,3 +1,42 @@
+- [C](#c)
+  - [1. Bit Iteration](#1-bit-iteration)
+  - [2. Checking stroing Palimdrom](#2-checking-stroing-palimdrom)
+  - [3. Prime Number](#3-prime-number)
+  - [4. Perfect number](#4-perfect-number)
+  - [5. armstrong number](#5-armstrong-number)
+  - [6. Count Character in String](#6-count-character-in-string)
+  - [7. Number pattern using recursion](#7-number-pattern-using-recursion)
+    - [0 1 2 3 4 5 4 3 2 1 0](#0-1-2-3-4-5-4-3-2-1-0)
+    - [Prime number](#prime-number)
+    - [perfect number](#perfect-number)
+    - [armstrong](#armstrong)
+  - [8. words reverse](#8-words-reverse)
+  - [9. string to word](#9-string-to-word)
+  - [10. Array Operation](#10-array-operation)
+  - [11. Sorting methods](#11-sorting-methods)
+    - [1. Selection Sort logic](#1-selection-sort-logic)
+    - [2. Bubble Sort logic](#2-bubble-sort-logic)
+  - [12. Function Pointer](#12-function-pointer)
+  - [13. callback Function](#13-callback-function)
+  - [14.	File handling](#14file-handling)
+  - [15.	2D array](#152d-array)
+  - [16. 2D array using dynamic memory](#16-2d-array-using-dynamic-memory)
+  - [17.	3D Array](#173d-array)
+  - [18. Matrix Multiplication](#18-matrix-multiplication)
+  - [19. Count character in string](#19-count-character-in-string)
+  - [20. find sub vector of sorted input vector with minimimum difference;](#20-find-sub-vector-of-sorted-input-vector-with-minimimum-difference)
+  - [20. find number of delete char in two string which is not same](#20-find-number-of-delete-char-in-two-string-which-is-not-same)
+  - [21. Binary Search in C](#21-binary-search-in-c)
+  - [22. Example of writing to a register](#22-example-of-writing-to-a-register)
+  - [23. # Register Storage class in C](#23--register-storage-class-in-c)
+  - [24. What is Debouncing?](#24-what-is-debouncing)
+  - [25. Reverse string using pointrt](#25-reverse-string-using-pointrt)
+  - [26. find first non repeating char](#26-find-first-non-repeating-char)
+  - [27. remove duplicate character](#27-remove-duplicate-character)
+  - [28. Rorate string character](#28-rorate-string-character)
+    - [right side rotation](#right-side-rotation)
+    - [left side rotation](#left-side-rotation)
+  - [29. longest\_sunstring](#29-longest_sunstring)
 
 # C 
 ## 1. Bit Iteration
@@ -1042,4 +1081,245 @@ int main()
 
     return 0;
 }
+```
+
+## 22. Example of writing to a register
+
+```c
+// Define a pointer to the register (volatile means it can change externally)
+volatile unsigned int * const WDT_CONTROL = (unsigned int *)0x40000000;
+
+// Write the value 0x01 to the watchdog control register
+*WDT_CONTROL = 0x01;
+```
+
+Or using macro:
+
+```c
+#define WDT_CONTROL (*(volatile unsigned int *)0x40000000)
+
+WDT_CONTROL = 0x01;  // Write 0x01 to the watchdog control register
+```
+## 23. # Register Storage class in C
+
+✅ Key Points: register in Embedded C
+| Feature                     | Details                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 🧠 **Purpose**              | Suggests that a variable should be stored in a **CPU register** for fast access                         |
+| ⚙️ **Used For**             | Frequently accessed **local variables** in **tight loops** (e.g., counters, flags)                      |
+| 🚫 **No Address Access**    | You **cannot use `&` (address-of)** with `register` variables — registers may not have memory addresses |
+| 🔍 **Scope**                | Only allowed for **local variables inside functions** — not global/static                               |
+| ⚠️ **Compiler Behavior**    | It's only a **hint** — **modern compilers may ignore it**, especially with optimization flags           |
+| 📉 **Obsolete in Practice** | Rarely needed today; **compilers handle register allocation better** than humans                        |
+| ❌ **Not for HW Registers**  | **Do NOT use `register` for memory-mapped hardware registers** — use `volatile` instead                 |
+| ⚠️ **C++ Support**          | `register` is **deprecated in C++17** and removed in C++20 — has **no effect**                          |
+
+## 24. What is Debouncing?
+
+> Mechanical buttons tend to bounce when pressed or released — the signal toggles between high and low several times quickly. You need to "debounce" it by ignoring fluctuations for a short period (e.g., 5–10 ms).
+
+```c
+#define BUTTON_PIN (*(volatile uint32_t*)0x40010000)  // Hardware-mapped I/O register
+
+void debounce_button() {
+    register int stable_count = 0;  // Used frequently in loop
+    const int stable_threshold = 1000;
+
+    while (1) {
+        if (BUTTON_PIN & 0x01) {  // Check if button is pressed
+            stable_count++;
+            if (stable_count >= stable_threshold) {
+                // Button is stable; take action
+                toggle_led();
+                break;
+            }
+        } else {
+            stable_count = 0;  // Reset if input is unstable
+        }
+    }
+}
+```
+
+## 25. Reverse string using pointrt
+
+```c
+#include <stdio.h>
+
+void reverse_string(char *str){
+    if (str == NULL) return;
+    char *left = str, *right;
+    
+    while (*str != '\0') { str++; }
+    
+    right = str -1;
+    
+    char temp;
+    while (left < right) {
+        temp = *left;
+        *left = *right;
+        *right = temp;
+        
+        left++; right--;
+    }  
+}
+int main()
+{
+    char str[] = "Embeddded";
+    reverse_string(str);
+    printf("%s", str);
+
+    return 0;
+}
+```
+## 26. find first non repeating char
+```c
+char first_n_reteat_char(char *str) {
+    
+    int count[256] = {0};
+    // int count[256] = {-1}; first non repeating char
+    char* p = str;
+    while (*p) {
+        count[(unsigned char)(*p)]++;
+        *p++;
+    }
+     p = str;
+    while (*p) {
+        if (count[(unsigned char)(*p)] == 1) {
+            return *p;
+        }
+        p++;
+    }
+    
+    return '\0';
+}
+int main()
+{
+    char str[] = "embedddedmcb";
+    
+    printf("%c", first_n_reteat_char(str));
+
+    return 0;
+}
+```
+
+## 27. remove duplicate character
+
+```c
+void remove_duplicate_char(char *name) {
+    char seen[256] = {0};
+    char read = 0, i = 0;
+    char ch;
+    while (name[read]) {
+        ch = name[read];
+        if (!seen[ch]) {
+            seen[ch] = 1;
+            name[write++] = ch;
+        }
+        read++;
+    }
+    name[write] = '\0';
+}
+```
+## 28. Rorate string character
+
+### right side rotation
+```c
+void rotate_string (char *str, int n) {
+    int len = strlen(str) -1 ;
+    
+    /*
+        1. Reverse string ABCED -> DECBA 
+        2. reverse only first times of rotatation character DE | CBA => ED | CBA
+        3. Reverse let character ED | CBA => ED | ABC => EDABC
+    */
+    int len = strlen(str);
+     
+    n %= len;
+    reverse_range(str, str + len - 1);
+
+    reverse_range(str, str + n - 1);
+     
+    reverse_range(str + n, str + len - 1);
+     
+    
+}
+```
+
+### left side rotation
+
+```text
+Original:
+AB | CDE
+
+Reverse First Part:
+BA | CDE
+
+Reverse Second Part:
+BA | EDC
+
+Reverse Whole String:
+CDEAB
+```
+
+
+```c
+void rotate_left(char *str, int n)
+{
+    int len = strlen(str);
+     
+    n %= len;
+     
+    reverse_range(str, str + n - 1);
+     
+    reverse_range(str + n, str + len - 1);
+     
+    reverse_range(str, str + len - 1);
+}
+```
+
+## 29. longest_sunstring
+
+```c
+#include <iostream>
+
+
+void longest_substring(char *str) {
+    
+    char last_index[256] = {-1};
+    
+    int right = 0, left =0 , start_index, current_len = 0, max_len;
+    for (;str[right]; right++) {
+        unsigned char ch = str[right];
+        
+        if (last_index[ch] >= left) {
+            left = last_index[ch] + 1;
+        }
+        
+        last_index[ch] = right;
+        
+        current_len = right - left + 1;
+        
+        if(current_len > max_len) {
+            max_len = current_len; start_index = left;
+        }
+    }
+    
+    printf("length of substring : %d :substring: ", max_len);
+    
+    for (int i = start_index ;i < start_index + max_len; i++) {
+        printf("%c", str[i]);
+    }
+}
+
+
+
+int main()
+{
+    char name[] = "Hareshpanchal";
+    longest_substring(name);
+
+    return 0;
+}
+
+// length of substring : 8 :substring: reshpanc
 ```

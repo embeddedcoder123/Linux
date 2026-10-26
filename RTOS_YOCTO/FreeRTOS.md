@@ -110,6 +110,10 @@ This helps prevent tasks that need to run in order from running at the same time
 
 ### In short:
 
+**AMP (Asymmetric Multiprocessing):** Each processor has a different job. One processor may control the others.
+
+**SMP (Symmetric Multiprocessing):** All processors have equal status and share the work.
+
 SMP allows multiple tasks to run at the same time on multiple cores.
 
 Lower priority tasks can run alongside higher priority tasks on different cores.
@@ -222,6 +226,4 @@ This document explains the different mechanisms available in RTOS (especially Fr
 - **Stream Buffers** are best for raw, high-speed, continuous data.
 - **Task Notifications** are fastest but limited to 32-bit value per task.
 - **Global Variables with Mutex** give full control, but you manage safety.
-
 ---
-
