@@ -3,7 +3,7 @@
 git pull
 if errorlevel 1 exit /b 1
 
-
+git add -A
 
 git diff --cached --quiet
 if not errorlevel 1 (
@@ -11,7 +11,7 @@ if not errorlevel 1 (
     pause
     exit /b 0
 )
-git add .
+
 git commit -m "Added"
 if errorlevel 1 exit /b 1
 
